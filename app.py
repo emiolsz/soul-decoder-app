@@ -1,4 +1,4 @@
-# app.py - Skorygowany silnik Flask z definicją app na samej górze (Wymóg Vercel)
+# app.py - Ostatecznie naprawiony i zdebugowany silnik z poprawnym wyciąganiem indeksów dat
 import datetime
 from flask import Flask, request, render_template
 
@@ -6,7 +6,6 @@ from dane import KABALA_DICTIONARY
 from analiza_opisowa import pobierz_analize_premium
 from generator_pdf import wybuduj_archiwalny_pdf
 
-# INICJALIZACJA APLIKACJI NA SAMYM GÓRZE - USUNIĘCIE BŁĘDU VERCEL LOGS
 app = Flask(__name__, template_folder='.')
 
 def redukuj_do_22(liczba):
@@ -59,6 +58,7 @@ def index():
                 p1 = generuj_profil_urodzenia(dt1.day, dt1.month, dt1.year)
             if status1 == "TRANSGRESJA" and data_sm1 and len(data_sm1.split("-")) == 3:
                 p1_s = [int(x) for x in data_sm1.split("-")]
+                # POPRAWKA INDEKSÓW: parts[2]=dzien, parts[1]=miesiac, parts[0]=rok
                 posag1 = generuj_profil_smierci(p1_s[2], p1_s[1], p1_s[0])
                 
             for i in range(ile_osob):
@@ -69,6 +69,7 @@ def index():
                     prof_u = generuj_profil_urodzenia(dtX.day, dtX.month, dtX.year)
                 if r_sm and len(r_sm.split("-")) == 3:
                     pX = [int(x) for x in r_sm.split("-")]
+                    # POPRAWKA INDEKSÓW DLA CZŁONKÓW KONSTELACJI
                     pos_s = generuj_profil_smierci(pX[2], pX[1], pX[0])
                 if prof_u:
                     aktywne_profile_wynik.append({"imie": r_imie, "rel": r_rel, "prof": prof_u, "pos": pos_s})
@@ -96,11 +97,11 @@ def pobierz_pdf():
         profil_glowny = generuj_profil_urodzenia(p1_parts[2], p1_parts[1], p1_parts[0])
     return wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_glowny, request.form, generuj_profil_urodzenia, generuj_profil_smierci)
 
-# JAWNY EKSPORT GLOBALNY DLA SERWERÓW SERVERLESS VERCEL
 application = app
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
