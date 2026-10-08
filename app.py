@@ -1,7 +1,6 @@
-# app.py - Skonsolidowany serwer Flask obsługujący elastyczne mapowanie z 4 porcji widoków
+# app.py - Skonsolidowany serwer Flask obsługujący suwak i dynamiczne kolekcje do 10 osób
 import datetime
 from flask import Flask, request, render_template_string
-
 from dane import KABALA_DICTIONARY
 from widok import HTML_TEMPLATE_START
 from widok_formularz2 import HTML_TEMPLATE_FORM2
@@ -9,7 +8,6 @@ from widok_wyniki import HTML_TEMPLATE_MID
 from widok_przodkowie import HTML_TEMPLATE_END
 from generator_pdf import wybuduj_archiwalny_pdf
 
-# SKŁADANIE FORMULARZA Z 4 NIEZALEŻNYCH PORCJI
 PELNY_SZABLON = HTML_TEMPLATE_START + HTML_TEMPLATE_FORM2 + HTML_TEMPLATE_MID + HTML_TEMPLATE_END
 app = Flask(__name__)
 
@@ -17,7 +15,7 @@ def redukuj_do_22(liczba):
     if liczba == 0: return 22
     while liczba > 22:
         liczba = sum(int(c) for c in str(liczba))
-    return float(liczba) if isinstance(liczba, float) else liczba
+    return liczba
 
 def generuj_profil_urodzenia(d, m, r):
     prawa = redukuj_do_22(d)
@@ -33,68 +31,75 @@ def generuj_profil_smierci(d, m, r):
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    p1, pA, pB, posagA, posagB = [None]*5
-    mecze = []
-    imie1, data_ur1 = "", ""
-    p_relA, p_imieA, p_urA, p_smA, chk_pA = "Brat", "", "", "", False
-    p_relB, p_imieB, p_urB, p_smB, chk_pB = "Prababcia", "", "", "", False
+    p1, posag1 = None, None
+    aktywne_profile_wynik, mecze = [], []
+    
+    # Czyste stany startowe
+    imie1, data_ur1, data_sm1, status1 = "", "", "", "ZYJE"
+    ile_osob = 1
+    aktywne_role, aktywne_imiona, aktywne_ur, aktywne_sm = [], [], [], []
     
     if request.method == "POST":
-        imie1, data_ur1 = request.form.get("imie1", ""), request.form.get("data_ur1", "")
-        chk_pA = True if request.form.get("chk_pA") else False
-        chk_pB = True if request.form.get("chk_pB") else False
+        imie1 = request.form.get("imie1", "")
+        data_ur1 = request.form.get("data_ur1", "")
+        data_sm1 = request.form.get("data_sm1", "")
+        status1 = request.form.get("status1", "ZYJE")
+        ile_osob = int(request.form.get("ile_osob", 1))
         
-        if data_ur1:
-            dt1 = datetime.datetime.strptime(data_ur1, "%Y-%m-%d")
-            p1 = generuj_profil_urodzenia(dt1.day, dt1.month, dt1.year)
+        # Zbieranie list na podstawie suwaka
+        for i in range(ile_osob):
+            aktywne_role.append(request.form.get(f"p_rel_{i}", "Brat"))
+            aktywne_imiona.append(request.form.get(f"p_imie_{i}", ""))
+            aktywne_ur.append(request.form.get(f"p_ur_{i}", ""))
+            aktywne_sm.append(request.form.get(f"p_sm_{i}", ""))
             
-        if chk_pA:
-            p_relA = request.form.get("p_relA", "Brat")
-            p_imieA = request.form.get("p_imieA", "")
-            p_urA = request.form.get("p_urA", "")
-            p_smA = request.form.get("p_smA", "")
-            if p_urA: pA = generuj_profil_urodzenia(*[int(x) for x in p_urA.split("-")[::-1]])
-            if p_smA: posagA = generuj_profil_smierci(*[int(x) for x in p_smA.split("-")[::-1]])
-            
-        if chk_pB:
-            p_relB = request.form.get("p_relB", "Prababcia")
-            p_imieB = request.form.get("p_imieB", "")
-            p_urB = request.form.get("p_urB", "")
-            p_smB = request.form.get("p_smB", "")
-            if p_urB: pB = generuj_profil_urodzenia(*[int(x) for x in p_urB.split("-")[::-1]])
-            if p_smB: posagB = generuj_profil_smierci(*[int(x) for x in p_smB.split("-")[::-1]])
-
-        aktywni_przodkowie = []
-        if chk_pA and pA: aktywni_przodkowie.append((p_imieA or p_relA, p_relA, pA, posagA))
-        if chk_pB and pB: aktywni_przodkowie.append((p_imieB or p_relB, p_relB, pB, posagB))
+        akcja_dekoduj = request.form.get("akcja_dekoduj")
         
-        if p1 and aktywni_przodkowie:
-            for nazwa, rel, prof_p, pos_p in aktywni_przodkowie:
-                if p1["Tikkun"] == prof_p["Tikkun"]:
-                    mecze.append(f"✨ <b>Linia Przekazu Tikkun:</b> Wykazujesz wspolny Tikkun ({p1['Tikkun']}) z osoba: {nazwa} ({rel}).")
-                if prof_p["Wezel"] == p1["Lewa"]:
-                    mecze.append(f"⚠️ <b>Przejety Wzorzec:</b> Wezel Oporu osoby {nazwa} ({rel}) rezonuje jako Twoja Karma (Lewa Strona).")
-                if prof_p["Wezel"] == p1["Wezel"]:
-                    mecze.append(f"🔄 <b>Lustrzana Blokada:</b> Posiadasz identyczny Wezel Oporu ({p1['Wezel']}) co {nazwa} ({rel}) -- wspolny schemat rodowy.")
-                if pos_p and p1["Talent"] == pos_p["Transformacja"]:
-                    mecze.append(f"💎 <b>Aktywacja Zasobu:</b> Transformacja Przejscia osoby {nazwa} ({rel}) zasila i uwalnia Twoj osobisty Talent ({p1['Talent']})!")
+        if akcja_dekoduj == "TAK":
+            if data_ur1:
+                dt1 = datetime.datetime.strptime(data_ur1, "%Y-%m-%d")
+                p1 = generuj_profil_urodzenia(dt1.day, dt1.month, dt1.year)
+            if status1 == "TRANSGRESJA" and data_sm1:
+                posag1 = generuj_profil_smierci(*[int(x) for x in data_sm1.split("-")[::-1]])
+                
+            # Dynamiczne liczenie profili dla n osób z suwaka
+            for i in range(ile_osob):
+                r_imie = aktywne_imiona[i]
+                r_rel = aktywne_role[i]
+                r_ur = aktywne_ur[i]
+                r_sm = aktywne_sm[i]
+                
+                prof_u, pos_s = None, None
+                if r_ur:
+                    dtX = datetime.datetime.strptime(r_ur, "%Y-%m-%d")
+                    prof_u = generuj_profil_urodzenia(dtX.day, dtX.month, dtX.year)
+                if r_sm:
+                    pos_s = generuj_profil_smierci(*[int(x) for x in r_sm.split("-")[::-1]])
                     
-        if not mecze and p1: 
-            mecze.append("💡 Wybrana konstelacja wykazuje zrownowazone i autonomiczne linie energetyczne.")
+                if prof_u:
+                    aktywne_profile_wynik.append({"imie": r_imie, "rel": r_rel, "prof": prof_u, "pos": pos_s})
+                    
+            # SILNIK MAPOWANIA KRZYŻOWEGO DLA DYNAMICZNEJ LISTY Osób
+            if p1 and aktywne_profile_wynik:
+                for item in aktywne_profile_wynik:
+                    nazwa_wyswietl = item["imie"] if item["imie"] else item["rel"]
+                    if p1["Tikkun"] == item["prof"]["Tikkun"]:
+                        mecze.append(f"✨ <b>Linia Przekazu Tikkun:</b> Wykazujesz wspólny Tikkun ({p1['Tikkun']}) z osobą: {nazwa_wyswietl} ({item['rel']}).")
+                    if item["prof"]["Wezel"] == p1["Lewa"]:
+                        mecze.append(f"⚠️ <b>Przejęty Wzorzec:</b> Węzeł Oporu osoby {nazwa_wyswietl} rezonuje jako Twoja Karma (Lewa Strona).")
+                    if item["prof"]["Wezel"] == p1["Wezel"]:
+                        mecze.append(f"🔄 <b>Lustrzana Blokada:</b> Posiadasz identyczny Węzeł Oporu ({p1['Wezel']}) co {nazwa_wyswietl} ({item['rel']}).")
+                    if item["pos"] and p1["Talent"] == item["pos"]["Transformacja"]:
+                        mecze.append(f"💎 <b>Aktywacja Zasobu:</b> Transformacja Przejścia osoby {nazwa_wyswietl} uwalnia i zasila Twój osobisty Talent ({p1['Talent']})!")
+                if not mecze: mecze.append("💡 Wybrana konstelacja wykazuje zrównoważone linie energetyczne.")
 
-    return render_template_string(PELNY_SZABLON, p1=p1, pA=pA, pB=pB, posagA=posagA, posagB=posagB, mecze=mecze, imie1=imie1, data_ur1=data_ur1, p_relA=p_relA, p_imieA=p_imieA, p_urA=p_urA, p_smA=p_smA, chk_pA=chk_pA, p_relB=p_relB, p_imieB=p_imieB, p_urB=p_urB, p_smB=p_smB, chk_pB=chk_pB, dict=KABALA_DICTIONARY)
+    return render_template_string(PELNY_SZABLON, p1=p1, posag1=posag1, aktywne_profile_wynik=aktywne_profile_wynik, mecze=mecze, imie1=imie1, data_ur1=data_ur1, data_sm1=data_sm1, status1=status1, ile_osob=ile_osob, aktywne_role=aktywne_role, aktywne_imiona=aktywne_imiona, aktywne_ur=aktywne_ur, aktywne_sm=aktywne_sm, dict=KABALA_DICTIONARY)
 
 @app.route("/pobierz-pdf", methods=["POST"])
 def pobierz_pdf():
+    # Odczyt danych dynamicznych do budowy PDF z generator_pdf.py (Zaimplementujemy w kolejnym kroku)
     typ = request.form.get("typ_wydruku")
-    imie1, data_ur1 = request.form.get("d_imie1"), request.form.get("d_ur1")
-    profil_glowny = generuj_profil_urodzenia(*[int(x) for x in data_ur1.split("-")[::-1]]) if data_ur1 else None
-    return wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_glowny, request.form, generuj_profil_urodzenia, generuj_profil_smierci)
+    return send_file(io.BytesIO(b"PDF Engine Synced"), as_attachment=True, download_name="Raport.pdf")
 
 if __name__ == "__main__":
     app.run(debug=True)
-
-
-
-
-
