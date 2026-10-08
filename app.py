@@ -66,13 +66,21 @@ def index():
             if p_urC: pC = generuj_profil_urodzenia(*[int(x) for x in p_urC.split("-")[::-1]])
             if p_smC: posagC = generuj_profil_smierci(*[int(x) for x in p_smC.split("-")[::-1]])
 
-        # LOGIKA REZONANSU
-        aktywni, przodkowie = [], []
-        if p1: aktywni.append((imie1 or "Ja", "Profil Główny", p1))
-        if chk_r and p2: aktywni.append((imie2 or relacja2, relacja2, p2))
-        if chk_pA and pA: przodkowie.append((p_imieA or p_relA, pA, posagA))
-        if chk_pB and pB: przodkowie.append((p_imieB or p_relB, pB, posagB))
-        if chk_pC and pC: przodkowie.append((p_imieC or p_relC, pC, posagC))
+        # BEZBŁĘDNE INICJALIZOWANIE STRUKTUR LIST relacyjnych
+        aktywni = []
+        przodkowie = []
+        
+        if p1: 
+            aktywni.append((imie1 or "Ja", "Profil Główny", p1))
+        if chk_r and p2: 
+            aktywni.append((imie2 or relacja2, relacja2, p2))
+            
+        if chk_pA and pA: 
+            przodkowie.append((p_imieA or p_relA, pA, posagA))
+        if chk_pB and pB: 
+            przodkowie.append((p_imieB or p_relB, pB, posagB))
+        if chk_pC and pC: 
+            przodkowie.append((p_imieC or p_relC, pC, posagC))
         
         for np, prof_p, pos_p in przodkowie:
             for ir, rel_r, prof_r in aktywni:
@@ -90,12 +98,11 @@ def pobierz_pdf():
     typ = request.form.get("typ_wydruku")
     imie1, data_ur1 = request.form.get("d_imie1"), request.form.get("d_ur1")
     profil_główny = generuj_profil_urodzenia(*[int(x) for x in data_ur1.split("-")[::-1]]) if data_ur1 else None
-    
-    # Wywołanie odizolowanego silnika graficznego z generator_pdf.py
     return wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_główny, request.form, generuj_profil_urodzenia, generuj_profil_smierci)
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
 
 
