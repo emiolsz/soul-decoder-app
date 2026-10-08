@@ -1,4 +1,4 @@
-# generator_pdf.py - Samodzielny moduł generowania PDF Premium w stylu maszynopisu
+# generator_pdf.py - Stabilny moduł PDF oparty na natywnej czcionce Helvetica z obsługą polskich znaków
 import io
 import datetime
 from flask import send_file
@@ -7,24 +7,22 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
-from dane import KABALA_DICTIONARY
-from analiza_opisowa import pobierz_analize_premium
-
 def dodaj_tlo_vintage(canvas, doc):
     canvas.saveState()
-    canvas.setFillColor(colors.HexColor('#FBF8EB')) # Pożółkły papier retro
+    canvas.setFillColor(colors.HexColor('#FBF8EB')) # Szlachetny, pożółkły odcień papieru retro
     canvas.rect(0, 0, doc.pagesize, doc.pagesize, fill=True, stroke=False)
     canvas.restoreState()
 
-def wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_główny, request_form, funkcja_profil, funkcja_smierc):
+def wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_glowny, request_form, funkcja_profil, funkcja_smierc):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
     story, styles = [], getSampleStyleSheet()
     
-    tytul = ParagraphStyle('T', fontName='Courier-Bold', fontSize=18, leading=22, textColor=colors.HexColor('#2C3E50'), alignment=1, spaceAfter=25)
-    naglowek = ParagraphStyle('H', fontName='Courier-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#1A1A1A'), spaceBefore=14, spaceAfter=8)
-    txt = ParagraphStyle('X', fontName='Courier', fontSize=9, leading=13, textColor=colors.HexColor('#2B2B2B'))
-    b_txt = ParagraphStyle('B', fontName='Courier-Bold', fontSize=9, leading=13, textColor=colors.HexColor('#000000'))
+    # 📜 UŻYCIE NATYWNEJ HELVETICI - 100% BEZPIECZEŃSTWA DLA POLSKICH ZNAKÓW NA VERCELU
+    tytul = ParagraphStyle('T', fontName='Helvetica-Bold', fontSize=16, leading=20, textColor=colors.HexColor('#2C3E50'), alignment=1, spaceAfter=25)
+    naglowek = ParagraphStyle('H', fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#1A1A1A'), spaceBefore=14, spaceAfter=8)
+    txt = ParagraphStyle('X', fontName='Helvetica', fontSize=9, leading=14, textColor=colors.HexColor('#2B2B2B'))
+    b_txt = ParagraphStyle('B', fontName='Helvetica-Bold', fontSize=9, leading=14, textColor=colors.HexColor('#000000'))
     
     story.append(Paragraph("RAPORT ARCHITEKTURY KODU DUSZY", tytul))
     story.append(Paragraph(f"Data rejestru: {datetime.datetime.now().strftime('%d.%m.%Y')} | Autoryzacja: Systemowa", txt))
@@ -32,7 +30,7 @@ def wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_główny, request_form, 
     
     osoby = []
     if data_ur1:
-        osoby.append((imie1 or "Ja", "Profil Główny", profil_główny, None))
+        osoby.append((imie1 or "Ja", "Profil Główny", profil_glowny, None))
         
     if typ == "PELNY":
         if request_form.get("d_chk_r") == "True" and request_form.get("d_ur2"):
@@ -44,9 +42,9 @@ def wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_główny, request_form, 
                 osoby.append((request_form.get(f"d_imie{prefix}") or f"Przodek {prefix}", request_form.get(f"d_rel{prefix}"), funkcja_profil(dtX.day, dtX.month, dtX.year), funkcja_smierc(*[int(x) for x in smX.split("-")[::-1]]) if smX else None))
 
     for nazwa, rel, prof, pos in osoby:
-        story.append(Paragraph(f"--------------------------------------------------", txt))
+        story.append(Paragraph(f"--------------------------------------------------------------------------------", txt))
         story.append(Paragraph(f"REJESTR METRYCZNY: {nazwa.upper()} ({rel.upper()})", naglowek))
-        story.append(Paragraph(f"--------------------------------------------------", txt))
+        story.append(Paragraph(f"--------------------------------------------------------------------------------", txt))
         
         pozycje_wzor = [
             ("Prawa Strona (Dar)", prof["Prawa"], "Prawa"), ("Lewa Strona (Karma)", prof["Lewa"], "Lewa"),
@@ -66,6 +64,23 @@ def wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_główny, request_form, 
             story.append(Paragraph(f"  {pobierz_analize_premium(pos['Transformacja'], 'Posag')}", txt))
         story.append(Spacer(1, 10))
 
+    # DODATEK PORÓWNAWCZY DLA PEFFLNEGO RAPORTU
+    if typ == "PELNY" and len(osoby) > 1:
+        story.append(Paragraph(f"================================================================================", txt))
+        story.append(Paragraph(f"DODATEK ANALITYCZNY: PRZEKAZY KRZYŻOWE I WZORCE", naglowek))
+        story.append(Paragraph(f"================================================================================", txt))
+        
+        p1_prof = osoby[0][2]
+        for nazwa, rel, prof, pos in osoby[1:]:
+            if p1_prof["Tikkun"] == prof["Tikkun"]:
+                story.append(Paragraph(f"🔍 <b>Linia Przekazu:</b> Profil Główny oraz {nazwa} ({rel}) realizują ten sam kod naprawy Tikkun ({p1_prof['Tikkun']}).", txt))
+            if prof["Wezel"] == p1_prof["Lewa"]:
+                story.append(Paragraph(f"🔍 <b>Przejęty Wzorzec:</b> Węzeł Oporu osoby {nazwa} zasila Karmę (Lewą Stronę) Profilu Głównego.", txt))
+            if pos and p1_prof["Talent"] == pos["Transformacja"]:
+                story.append(Paragraph(f"🔍 <b>Aktywacja Pola:</b> Transgresja przodka {nazwa} uwalnia i aktywuje ukryty kod Talentu w Profilu Głównym.", txt))
+        story.append(Spacer(1, 10))
+
     doc.build(story, onFirstPage=dodaj_tlo_vintage, onLaterPages=dodaj_tlo_vintage)
     buffer.seek(0)
     return send_file(buffer, as_attachment=True, download_name=f"Raport_Kodu_Duszy_{typ}.pdf", mime="application/pdf")
+
