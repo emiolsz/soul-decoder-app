@@ -1,7 +1,6 @@
-# app.py - Skorygowany, w pełni bezpieczny silnik z walidacją struktury dat (Zabezpieczenie przed IndexError)
+# app.py - W pełni zdebugowany silnik z prawidłowym rozpakowywaniem dat HTML (Format: ROK-MM-DD)
 import datetime
 from flask import Flask, request, render_template_string
-
 from dane import KABALA_DICTIONARY
 from widok import HTML_TEMPLATE_START
 from widok_formularz2 import HTML_TEMPLATE_FORM2
@@ -46,7 +45,7 @@ def index():
         status1 = request.form.get("status1", "ZYJE")
         ile_osob = int(request.form.get("ile_osob", 1))
         
-        # Bezpieczne pobieranie dynamicznych list z formularza
+        # Bezpieczne zbieranie dynamicznych list z formularza
         for i in range(ile_osob):
             aktywne_role.append(request.form.get(f"p_rel_{i}", "Brat"))
             aktywne_imiona.append(request.form.get(f"p_imie_{i}", ""))
@@ -60,10 +59,11 @@ def index():
                 dt1 = datetime.datetime.strptime(data_ur1, "%Y-%m-%d")
                 p1 = generuj_profil_urodzenia(dt1.day, dt1.month, dt1.year)
             if status1 == "TRANSGRESJA" and data_sm1 and len(data_sm1.split("-")) == 3:
+                # Rozpakowanie formatu YYYY-MM-DD: parts1[0]=rok, parts1[1]=miesiac, parts1[2]=dzien
                 parts1 = [int(x) for x in data_sm1.split("-")]
                 posag1 = generuj_profil_smierci(parts1[2], parts1[1], parts1[0])
                 
-            # Dynamiczne generowanie profilów z rygorystyczną walidacją podziału daty
+            # Dynamiczne generowanie profilów dla dołączonych członków konstelacji
             for i in range(ile_osob):
                 r_imie = aktywne_imiona[i]
                 r_rel = aktywne_role[i]
@@ -102,6 +102,7 @@ def index():
 def pobierz_pdf():
     typ = request.form.get("typ_wydruku")
     imie1, data_ur1 = request.form.get("d_imie1"), request.form.get("d_ur1")
+    # Prawidłowa konwersja daty z formatu YYYY-MM-DD na inty dla silnika głównego urodzin
     profil_glowny = None
     if data_ur1 and len(data_ur1.split("-")) == 3:
         p1_parts = [int(x) for x in data_ur1.split("-")]
