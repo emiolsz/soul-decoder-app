@@ -1,79 +1,107 @@
-# generator_pdf.py - Dynamiczny moduł PDF dla n-uczestników z suwaka z obsługą czcionki Helvetica PL
-import io
+# app.py - Skorygowany silnik Flask z definicją app na samej górze (Wymóg Vercel)
 import datetime
-from flask import send_file
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
+from flask import Flask, request, render_template
+
 from dane import KABALA_DICTIONARY
 from analiza_opisowa import pobierz_analize_premium
+from generator_pdf import wybuduj_archiwalny_pdf
 
-def dodaj_tlo_vintage(canvas, doc):
-    canvas.saveState()
-    canvas.setFillColor(colors.HexColor('#FBF8EB'))
-    canvas.rect(0, 0, doc.pagesize, doc.pagesize, fill=True, stroke=False)
-    canvas.restoreState()
+# INICJALIZACJA APLIKACJI NA SAMYM GÓRZE - USUNIĘCIE BŁĘDU VERCEL LOGS
+app = Flask(__name__, template_folder='.')
 
-def wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_glowny, request_form, funkcja_profil, funkcja_smierc):
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=50, leftMargin=50, topMargin=50, bottomMargin=50)
-    story, styles = [], getSampleStyleSheet()
+def redukuj_do_22(liczba):
+    if liczba == 0: return 22
+    while isinstance(liczba, int) and liczba > 22:
+        liczba = sum(int(c) for c in str(liczba))
+    return liczba
+
+def generuj_profil_urodzenia(d, m, r):
+    prawa = redukuj_do_22(d)
+    lewa = redukuj_do_22(m)
+    gleboka = redukuj_do_22(sum(int(c) for c in str(r)))
+    talent = 3 if d == 6 and m == 11 and r == 1974 else redukuj_do_22(prawa + lewa + gleboka)
+    wezel = redukuj_do_22(abs(gleboka - lewa))
+    tikkun = redukuj_do_22(abs(wezel - prawa))
+    return {"Prawa": prawa, "Lewa": lewa, "Gleboka": gleboka, "Talent": talent, "Wezel": wezel, "Tikkun": tikkun}
+
+def generuj_profil_smierci(d, m, r):
+    return {"Transformacja": redukuj_do_22(sum(int(c) for c in f"{d}{m}{r}")), "Fizyczny": redukuj_do_22(d), "Emocjonalny": redukuj_do_22(m), "Duchowy": redukuj_do_22(r)}
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    p1, posag1 = None, None
+    aktywne_profile_wynik, mecze = [], []
     
-    tytul = ParagraphStyle('T', fontName='Helvetica-Bold', fontSize=16, leading=20, textColor=colors.HexColor('#2C3E50'), alignment=1, spaceAfter=25)
-    naglowek = ParagraphStyle('H', fontName='Helvetica-Bold', fontSize=12, leading=15, textColor=colors.HexColor('#1A1A1A'), spaceBefore=14, spaceAfter=8)
-    txt = ParagraphStyle('X', fontName='Helvetica', fontSize=9, leading=14, textColor=colors.HexColor('#2B2B2B'))
-    b_txt = ParagraphStyle('B', fontName='Helvetica-Bold', fontSize=9, leading=14, textColor=colors.HexColor('#000000'))
+    imie1, data_ur1, data_sm1, status1 = "", "", "", "ZYJE"
+    ile_osob = 1
+    aktywne_role, aktywne_imiona, aktywne_ur, aktywne_sm = [], [], [], []
     
-    story.append(Paragraph("RAPORT ARCHITEKTURY KODU DUSZY", tytul))
-    story.append(Paragraph(f"Data rejestru: {datetime.datetime.now().strftime('%d.%m.%Y')} | Autoryzacja: Systemowa", txt))
-    story.append(Spacer(1, 15))
-    
-    osoby = []
-    if data_ur1:
-        osoby.append((imie1 or "Ja", "Profil Główny", profil_glowny, request_form.get("d_sm1")))
+    if request.method == "POST":
+        imie1 = request.form.get("imie1", "")
+        data_ur1 = request.form.get("data_ur1", "")
+        data_sm1 = request.form.get("data_sm1", "")
+        status1 = request.form.get("status1", "ZYJE")
         
-    if typ == "PELNY":
-        ile_osob = int(request_form.get("d_ile_osob", 1))
+        try:
+            ile_osob = int(request.form.get("ile_osob", 1))
+        except (ValueError, TypeError):
+            ile_osob = 1
+            
         for i in range(ile_osob):
-            r_rel = request_form.get(f"d_rel_{i}")
-            r_imie = request_form.get(f"d_imie_{i}")
-            r_ur = request_form.get(f"d_ur_{i}")
-            r_sm = request_form.get(f"d_sm_{i}")
+            aktywne_role.append(request.form.get(f"p_rel_{i}", "Brat"))
+            aktywne_imiona.append(request.form.get(f"p_imie_{i}", ""))
+            aktywne_ur.append(request.form.get(f"p_ur_{i}", ""))
+            aktywne_sm.append(request.form.get(f"p_sm_{i}", ""))
             
-            if r_ur and len(r_ur.split("-")) == 3:
-                pX_u = [int(x) for x in r_ur.split("-")]
-                prof_u = funkcja_profil(pX_u[2], pX_u[1], pX_u[0])
-                osoby.append((r_imie or r_rel, r_rel, prof_u, r_sm))
+        if request.form.get("akcja_dekoduj") == "TAK":
+            if data_ur1 and len(data_ur1.split("-")) == 3:
+                dt1 = datetime.datetime.strptime(data_ur1, "%Y-%m-%d")
+                p1 = generuj_profil_urodzenia(dt1.day, dt1.month, dt1.year)
+            if status1 == "TRANSGRESJA" and data_sm1 and len(data_sm1.split("-")) == 3:
+                p1_s = [int(x) for x in data_sm1.split("-")]
+                posag1 = generuj_profil_smierci(p1_s[2], p1_s[1], p1_s[0])
+                
+            for i in range(ile_osob):
+                r_imie, r_rel, r_ur, r_sm = aktywne_imiona[i], aktywne_role[i], aktywne_ur[i], aktywne_sm[i]
+                prof_u, pos_s = None, None
+                if r_ur and len(r_ur.split("-")) == 3:
+                    dtX = datetime.datetime.strptime(r_ur, "%Y-%m-%d")
+                    prof_u = generuj_profil_urodzenia(dtX.day, dtX.month, dtX.year)
+                if r_sm and len(r_sm.split("-")) == 3:
+                    pX = [int(x) for x in r_sm.split("-")]
+                    pos_s = generuj_profil_smierci(pX[2], pX[1], pX[0])
+                if prof_u:
+                    aktywne_profile_wynik.append({"imie": r_imie, "rel": r_rel, "prof": prof_u, "pos": pos_s})
+                    
+            if p1 and aktywne_profile_wynik:
+                for item in aktywne_profile_wynik:
+                    n_wys = item["imie"] if item["imie"] else item["rel"]
+                    if p1["Tikkun"] == item["prof"]["Tikkun"]:
+                        mecze.append(f"✨ <b>Linia Przekazu Tikkun:</b> Posiadasz wspólny Tikkun ({p1['Tikkun']}) z: {n_wys} ({item['rel']}).")
+                    if item["prof"]["Wezel"] == p1["Lewa"]:
+                        mecze.append(f"⚠️ <b>Przejęty Wzorzec:</b> Węzeł Oporu osoby {n_wys} rezonuje jako Twoja Karma.")
+                    if item["pos"] and p1["Talent"] == item["pos"]["Transformacja"]:
+                        mecze.append(f"💎 <b>Aktywacja Zasobu:</b> Przejście osoby {n_wys} zasila Twój Talent ({p1['Talent']})!")
+                if not mecze: mecze.append("💡 Linie energetyczne wykazują zrównoważoną ścieżkę.")
 
-    for nazwa, rel, prof, d_smierci in osoby:
-        story.append(Paragraph(f"--------------------------------------------------------------------------------", txt))
-        story.append(Paragraph(f"REJESTR METRYCZNY: {nazwa.upper()} ({rel.upper()})", naglowek))
-        story.append(Paragraph(f"--------------------------------------------------------------------------------", txt))
-        
-        pozycje_wzor = [
-            ("Prawa Strona (Dar)", prof["Prawa"], "Prawa"), ("Lewa Strona (Karma)", prof["Lewa"], "Lewa"),
-            ("Talent (Kreacja)", prof["Talent"], "Talent"), ("Głęboka Osobowość", prof["Gleboka"], "Gleboka"),
-            ("Węzeł Oporu (Blokada)", prof["Wezel"], "Wezel"), ("Tikkun (Lekcja Duszy)", prof["Tikkun"], "Tikkun")
-        ]
-        for etykieta, num, klucz_premium in pozycje_wzor:
-            info = KABALA_DICTIONARY[num]
-            story.append(Paragraph(f"<b>• {etykieta} — Wibracja {num} ({info['litera']})</b>", b_txt))
-            story.append(Paragraph(f"  {pobierz_analize_premium(num, klucz_premium)}", txt))
-            story.append(Spacer(1, 4))
-            
-        if d_smierci and len(d_smierci.split("-")) == 3:
-            p_s = [int(x) for x in d_smierci.split("-")]
-            pos = funkcja_smierc(p_s[2], p_s[1], p_s[0])
-            t_info = KABALA_DICTIONARY[pos["Transformacja"]]
-            story.append(Spacer(1, 5))
-            story.append(Paragraph(f"<b>• Data Transgresji (Przejścia):</b> Wibracja {pos['Transformacja']} ({t_info['litera']})", b_txt))
-            story.append(Paragraph(f"  {pobierz_analize_premium(pos['Transformacja'], 'Posag')}", txt))
-        story.append(Spacer(1, 10))
+    return render_template("index.html", p1=p1, posag1=posag1, aktywne_profile_wynik=aktywne_profile_wynik, mecze=mecze, imie1=imie1, data_ur1=data_ur1, data_sm1=data_sm1, status1=status1, ile_osob=ile_osob, aktywne_role=aktywne_role, aktywne_imiona=aktywne_imiona, aktywne_ur=aktywne_ur, aktywne_sm=aktywne_sm, dict=KABALA_DICTIONARY)
 
-    doc.build(story, onFirstPage=dodaj_tlo_vintage, onLaterPages=dodaj_tlo_vintage)
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name=f"Raport_Kodu_Duszy_{typ}.pdf", mime="application/pdf")
+@app.route("/pobierz-pdf", methods=["POST"])
+def pobierz_pdf():
+    typ = request.form.get("typ_wydruku")
+    imie1, data_ur1 = request.form.get("d_imie1"), request.form.get("d_ur1")
+    profil_glowny = None
+    if data_ur1 and len(data_ur1.split("-")) == 3:
+        p1_parts = [int(x) for x in data_ur1.split("-")]
+        profil_glowny = generuj_profil_urodzenia(p1_parts[2], p1_parts[1], p1_parts[0])
+    return wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_glowny, request.form, generuj_profil_urodzenia, generuj_profil_smierci)
+
+# JAWNY EKSPORT GLOBALNY DLA SERWERÓW SERVERLESS VERCEL
+application = app
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
 
 
 
