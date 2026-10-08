@@ -1,4 +1,4 @@
-# app.py - Stabilny i zdebugowany kontroler matrycy z obsługą suwaka relacji
+# app.py - Skorygowany silnik dynamiczny z poprawnym indeksowaniem [i]
 import datetime
 from flask import Flask, request, render_template_string
 
@@ -35,7 +35,6 @@ def index():
     p1, posag1 = None, None
     aktywne_profile_wynik, mecze = [], []
     
-    # Czyste, neutralne stany startowe
     imie1, data_ur1, data_sm1, status1 = "", "", "", "ZYJE"
     ile_osob = 1
     aktywne_role, aktywne_imiona, aktywne_ur, aktywne_sm = [], [], [], []
@@ -47,7 +46,7 @@ def index():
         status1 = request.form.get("status1", "ZYJE")
         ile_osob = int(request.form.get("ile_osob", 1))
         
-        # Bezpieczne zbieranie dynamicznych list z formularza
+        # Bezpieczne pobieranie danych dynamicznych z zachowaniem prawidłowych indeksów
         for i in range(ile_osob):
             aktywne_role.append(request.form.get(f"p_rel_{i}", "Brat"))
             aktywne_imiona.append(request.form.get(f"p_imie_{i}", ""))
@@ -56,15 +55,15 @@ def index():
             
         akcja_dekoduj = request.form.get("akcja_dekoduj", "")
         
-        # Obliczenia uruchamiają się WYŁĄCZNIE po kliknięciu głównego przycisku
         if akcja_dekoduj == "TAK":
             if data_ur1:
                 dt1 = datetime.datetime.strptime(data_ur1, "%Y-%m-%d")
                 p1 = generuj_profil_urodzenia(dt1.day, dt1.month, dt1.year)
             if status1 == "TRANSGRESJA" and data_sm1:
-                posag1 = generuj_profil_smierci(*[int(x) for x in data_sm1.split("-")[::-1]])
+                parts1 = [int(x) for x in data_sm1.split("-")]
+                posag1 = generuj_profil_smierci(parts1[2], parts1[1], parts1[0])
                 
-            # Dynamiczne generowanie profilów dla dołączonych uczestników
+            # Dynamiczne generowanie z poprawnym użyciem iteratora [i]
             for i in range(ile_osob):
                 r_imie = aktywne_imiona[i]
                 r_rel = aktywne_role[i]
@@ -76,12 +75,13 @@ def index():
                     dtX = datetime.datetime.strptime(r_ur, "%Y-%m-%d")
                     prof_u = generuj_profil_urodzenia(dtX.day, dtX.month, dtX.year)
                 if r_sm:
-                    pos_s = generuj_profil_smierci(*[int(x) for x in r_sm.split("-")[::-1]])
+                    partsX = [int(x) for x in r_sm.split("-")]
+                    pos_s = generuj_profil_smierci(partsX[2], partsX[1], partsX[0])
                     
                 if prof_u:
                     aktywne_profile_wynik.append({"imie": r_imie, "rel": r_rel, "prof": prof_u, "pos": pos_s})
                     
-            # SILNIK MAPOWANIA KRZYŻOWEGO DLA CAŁEJ PALETY DANYCH
+            # SILNIK MAPOWANIA KRZYŻOWEGO Pola Rodowego
             if p1 and aktywne_profile_wynik:
                 for item in aktywne_profile_wynik:
                     nazwa_wyswietl = item["imie"] if item["imie"] else item["rel"]
@@ -100,7 +100,6 @@ def index():
 
 @app.route("/pobierz-pdf", methods=["POST"])
 def pobierz_pdf():
-    # Odczyt danych i re-generacja profilu do stabilnej budowy PDF
     typ = request.form.get("typ_wydruku")
     imie1, data_ur1 = request.form.get("d_imie1"), request.form.get("d_ur1")
     profil_glowny = generuj_profil_urodzenia(*[int(x) for x in data_ur1.split("-")[::-1]]) if data_ur1 else None
@@ -108,4 +107,5 @@ def pobierz_pdf():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
 
