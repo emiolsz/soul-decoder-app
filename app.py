@@ -1,6 +1,7 @@
-# app.py - Skonsolidowany serwer Flask obsługujący suwak i dynamiczne kolekcje do 10 osób
+# app.py - Stabilny i zdebugowany kontroler matrycy z obsługą suwaka relacji
 import datetime
 from flask import Flask, request, render_template_string
+
 from dane import KABALA_DICTIONARY
 from widok import HTML_TEMPLATE_START
 from widok_formularz2 import HTML_TEMPLATE_FORM2
@@ -34,7 +35,7 @@ def index():
     p1, posag1 = None, None
     aktywne_profile_wynik, mecze = [], []
     
-    # Czyste stany startowe
+    # Czyste, neutralne stany startowe
     imie1, data_ur1, data_sm1, status1 = "", "", "", "ZYJE"
     ile_osob = 1
     aktywne_role, aktywne_imiona, aktywne_ur, aktywne_sm = [], [], [], []
@@ -46,15 +47,16 @@ def index():
         status1 = request.form.get("status1", "ZYJE")
         ile_osob = int(request.form.get("ile_osob", 1))
         
-        # Zbieranie list na podstawie suwaka
+        # Bezpieczne zbieranie dynamicznych list z formularza
         for i in range(ile_osob):
             aktywne_role.append(request.form.get(f"p_rel_{i}", "Brat"))
             aktywne_imiona.append(request.form.get(f"p_imie_{i}", ""))
             aktywne_ur.append(request.form.get(f"p_ur_{i}", ""))
             aktywne_sm.append(request.form.get(f"p_sm_{i}", ""))
             
-        akcja_dekoduj = request.form.get("akcja_dekoduj")
+        akcja_dekoduj = request.form.get("akcja_dekoduj", "")
         
+        # Obliczenia uruchamiają się WYŁĄCZNIE po kliknięciu głównego przycisku
         if akcja_dekoduj == "TAK":
             if data_ur1:
                 dt1 = datetime.datetime.strptime(data_ur1, "%Y-%m-%d")
@@ -62,7 +64,7 @@ def index():
             if status1 == "TRANSGRESJA" and data_sm1:
                 posag1 = generuj_profil_smierci(*[int(x) for x in data_sm1.split("-")[::-1]])
                 
-            # Dynamiczne liczenie profili dla n osób z suwaka
+            # Dynamiczne generowanie profilów dla dołączonych uczestników
             for i in range(ile_osob):
                 r_imie = aktywne_imiona[i]
                 r_rel = aktywne_role[i]
@@ -79,7 +81,7 @@ def index():
                 if prof_u:
                     aktywne_profile_wynik.append({"imie": r_imie, "rel": r_rel, "prof": prof_u, "pos": pos_s})
                     
-            # SILNIK MAPOWANIA KRZYŻOWEGO DLA DYNAMICZNEJ LISTY Osób
+            # SILNIK MAPOWANIA KRZYŻOWEGO DLA CAŁEJ PALETY DANYCH
             if p1 and aktywne_profile_wynik:
                 for item in aktywne_profile_wynik:
                     nazwa_wyswietl = item["imie"] if item["imie"] else item["rel"]
@@ -91,15 +93,19 @@ def index():
                         mecze.append(f"🔄 <b>Lustrzana Blokada:</b> Posiadasz identyczny Węzeł Oporu ({p1['Wezel']}) co {nazwa_wyswietl} ({item['rel']}).")
                     if item["pos"] and p1["Talent"] == item["pos"]["Transformacja"]:
                         mecze.append(f"💎 <b>Aktywacja Zasobu:</b> Transformacja Przejścia osoby {nazwa_wyswietl} uwalnia i zasila Twój osobisty Talent ({p1['Talent']})!")
-                if not mecze: mecze.append("💡 Wybrana konstelacja wykazuje zrównoważone linie energetyczne.")
+                if not mecze: 
+                    mecze.append("💡 Wybrana konstelacja wykazuje zrównoważone linie energetyczne.")
 
     return render_template_string(PELNY_SZABLON, p1=p1, posag1=posag1, aktywne_profile_wynik=aktywne_profile_wynik, mecze=mecze, imie1=imie1, data_ur1=data_ur1, data_sm1=data_sm1, status1=status1, ile_osob=ile_osob, aktywne_role=aktywne_role, aktywne_imiona=aktywne_imiona, aktywne_ur=aktywne_ur, aktywne_sm=aktywne_sm, dict=KABALA_DICTIONARY)
 
 @app.route("/pobierz-pdf", methods=["POST"])
 def pobierz_pdf():
-    # Odczyt danych dynamicznych do budowy PDF z generator_pdf.py (Zaimplementujemy w kolejnym kroku)
+    # Odczyt danych i re-generacja profilu do stabilnej budowy PDF
     typ = request.form.get("typ_wydruku")
-    return send_file(io.BytesIO(b"PDF Engine Synced"), as_attachment=True, download_name="Raport.pdf")
+    imie1, data_ur1 = request.form.get("d_imie1"), request.form.get("d_ur1")
+    profil_glowny = generuj_profil_urodzenia(*[int(x) for x in data_ur1.split("-")[::-1]]) if data_ur1 else None
+    return wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_glowny, request.form, generuj_profil_urodzenia, generuj_profil_smierci)
 
 if __name__ == "__main__":
     app.run(debug=True)
+
