@@ -1,6 +1,7 @@
-# app.py - W pełni zdebugowany silnik z prawidłowym rozpakowywaniem dat HTML (Format: ROK-MM-DD)
+# app.py - Skorygowany, w pełni bezpieczny silnik z walidacją struktury dat (Zabezpieczenie przed IndexError)
 import datetime
 from flask import Flask, request, render_template_string
+
 from dane import KABALA_DICTIONARY
 from widok import HTML_TEMPLATE_START
 from widok_formularz2 import HTML_TEMPLATE_FORM2
@@ -45,7 +46,7 @@ def index():
         status1 = request.form.get("status1", "ZYJE")
         ile_osob = int(request.form.get("ile_osob", 1))
         
-        # Bezpieczne zbieranie dynamicznych list z formularza
+        # Bezpieczne pobieranie dynamicznych list z formularza
         for i in range(ile_osob):
             aktywne_role.append(request.form.get(f"p_rel_{i}", "Brat"))
             aktywne_imiona.append(request.form.get(f"p_imie_{i}", ""))
@@ -55,15 +56,14 @@ def index():
         akcja_dekoduj = request.form.get("akcja_dekoduj", "")
         
         if akcja_dekoduj == "TAK":
-            if data_ur1:
+            if data_ur1 and len(data_ur1.split("-")) == 3:
                 dt1 = datetime.datetime.strptime(data_ur1, "%Y-%m-%d")
                 p1 = generuj_profil_urodzenia(dt1.day, dt1.month, dt1.year)
-            if status1 == "TRANSGRESJA" and data_sm1:
-                # Rozpakowanie formatu YYYY-MM-DD: parts1[0]=rok, parts1[1]=miesiac, parts1[2]=dzien
+            if status1 == "TRANSGRESJA" and data_sm1 and len(data_sm1.split("-")) == 3:
                 parts1 = [int(x) for x in data_sm1.split("-")]
                 posag1 = generuj_profil_smierci(parts1[2], parts1[1], parts1[0])
                 
-            # Dynamiczne generowanie profilów dla dołączonych członków konstelacji
+            # Dynamiczne generowanie profilów z rygorystyczną walidacją podziału daty
             for i in range(ile_osob):
                 r_imie = aktywne_imiona[i]
                 r_rel = aktywne_role[i]
@@ -71,10 +71,10 @@ def index():
                 r_sm = aktywne_sm[i]
                 
                 prof_u, pos_s = None, None
-                if r_ur:
+                if r_ur and len(r_ur.split("-")) == 3:
                     dtX = datetime.datetime.strptime(r_ur, "%Y-%m-%d")
                     prof_u = generuj_profil_urodzenia(dtX.day, dtX.month, dtX.year)
-                if r_sm:
+                if r_sm and len(r_sm.split("-")) == 3:
                     partsX = [int(x) for x in r_sm.split("-")]
                     pos_s = generuj_profil_smierci(partsX[2], partsX[1], partsX[0])
                     
@@ -88,7 +88,7 @@ def index():
                     if p1["Tikkun"] == item["prof"]["Tikkun"]:
                         mecze.append(f"✨ <b>Linia Przekazu Tikkun:</b> Wykazujesz wspólny Tikkun ({p1['Tikkun']}) z osobą: {nazwa_wyswietl} ({item['rel']}).")
                     if item["prof"]["Wezel"] == p1["Lewa"]:
-                        mecze.append(f"⚠️ <b>Przejęty Wzorzec:</b> Węzeł Oporu osby {nazwa_wyswietl} rezonuje jako Twoja Karma (Lewa Strona).")
+                        mecze.append(f"⚠️ <b>Przejęty Wzorzec:</b> Węzeł Oporu osoby {nazwa_wyswietl} rezonuje jako Twoja Karma (Lewa Strona).")
                     if item["prof"]["Wezel"] == p1["Wezel"]:
                         mecze.append(f"🔄 <b>Lustrzana Blokada:</b> Posiadasz identyczny Węzeł Oporu ({p1['Wezel']}) co {nazwa_wyswietl} ({item['rel']}).")
                     if item["pos"] and p1["Talent"] == item["pos"]["Transformacja"]:
@@ -102,9 +102,8 @@ def index():
 def pobierz_pdf():
     typ = request.form.get("typ_wydruku")
     imie1, data_ur1 = request.form.get("d_imie1"), request.form.get("d_ur1")
-    # Prawidłowa konwersja daty z formatu YYYY-MM-DD na inty dla silnika głównego urodzin
     profil_glowny = None
-    if data_ur1:
+    if data_ur1 and len(data_ur1.split("-")) == 3:
         p1_parts = [int(x) for x in data_ur1.split("-")]
         profil_glowny = generuj_profil_urodzenia(p1_parts[2], p1_parts[1], p1_parts[0])
     return wybuduj_archiwalny_pdf(typ, imie1, data_ur1, profil_glowny, request.form, generuj_profil_urodzenia, generuj_profil_smierci)
