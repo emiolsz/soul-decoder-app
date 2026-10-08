@@ -129,15 +129,15 @@ def wybuduj_archiwalny_pdf(
         textColor=colors.HexColor("#2C3E50"), alignment=1, spaceAfter=25,
     )
     naglowek = ParagraphStyle(
-        "H", fontName="Helvetica-Bold", fontSize=12, leading=15,
+        "H", fontName="DejaVuSans", fontSize=12, leading=15,
         textColor=colors.HexColor("#1A1A1A"), spaceBefore=14, spaceAfter=8,
     )
     txt = ParagraphStyle(
-        "X", fontName="Helvetica", fontSize=9, leading=14,
+        "X", fontName="DejaVuSans", fontSize=9, leading=14,
         textColor=colors.HexColor("#2B2B2B"),
     )
     b_txt = ParagraphStyle(
-        "B", fontName="Helvetica-Bold", fontSize=9, leading=14,
+        "B", fontName="DejaVuSans", fontSize=9, leading=14,
         textColor=colors.HexColor("#000000"),
     )
 
