@@ -100,12 +100,9 @@ ANALIZY = {
         "Wezel": "Opór aktywuje się jako chorobliwa walka z naturalnym biegiem wydarzeń, hazardowe podejście do życia lub całkowity paraliż przed podjęciem ryzyka.",
         "Tikkun": "Głównym wyzwaniem ewolucyjnym jest odpuszczenie neurotycznej kontroli i odbudowanie głębokiego, niezłomnego zaufania do prowadzenia wyższej mądrości.",
         "Posag": "Potężna moc manifestacji i transformacji skrajności. Przodek uwalnia pole rodu z dawnych stagnacji, zostawiając impuls do dynamicznej ewolucji."
-    }
+    },
 
-
-
-
-11: {
+    11: {
         "Prawa": "Potężny nurt wewnętrznej siły, pasji i witalności. Twój kosmiczny dar to niezłomność, magnetyzm osobisty oraz zdolność regeneracji poprzez aktywację wyższego światła.",
         "Lewa": "Lekcja wymaga opanowania destrukcyjnej surowości (Gewura), tłumienia emocji oraz radzenia sobie z lękiem przed bezsilnością i utratą kontroli.",
         "Talent": "Transformacja surowej energii życiowej. Masz wrodzony talent do uzdrawiania, motywowania innych oraz zarządzania wielkimi zasobami energetycznymi pola.",
